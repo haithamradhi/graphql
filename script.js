@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         loginDialog.showModal();
     }
-})
+});
 
 // Toast Notification System
 function showToast(message, type = 'error') {
@@ -119,6 +119,122 @@ async function getData(token) {
     }
 }
 
+function createSection(className) {
+    const section = document.createElement('div');
+    section.className = `section ${className}`;
+    return section;
+}
+
+function createCard(title, items) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+        <div class="card-title">${title}</div>
+        <div class="card-content">
+            ${items.map(([label, value]) => `
+                <div class="info-item">
+                    <span>${label}:</span>
+                    <span>${value}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    return card;
+}
+
+function createTable(title, headers, rows) {
+    const container = document.createElement('div');
+    container.className = 'table-container';
+    
+    const titleElement = document.createElement('h3');
+    titleElement.className = 'table-title';
+    titleElement.textContent = title;
+    container.appendChild(titleElement);
+
+    const tableWrapper = document.createElement('div');
+    const table = document.createElement('table');
+    table.innerHTML = `
+        <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+            ${rows.map(row => `
+                <tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>
+            `).join('')}
+        </tbody>
+    `;
+    tableWrapper.appendChild(table);
+    container.appendChild(tableWrapper);
+    return container;
+}
+
+function processSkillsData(transactions) {
+    const skillsTotal = {};
+    
+    if (!transactions) return {};
+    
+    transactions.forEach(transaction => {
+        const skillName = transaction.type.replace('skill_', '');
+        skillsTotal[skillName] = (skillsTotal[skillName] || 0) + transaction.amount;
+    });
+    
+    return Object.entries(skillsTotal)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15)
+        .reduce((obj, [key, value]) => {
+            obj[key] = value;
+            return obj;
+        }, {});
+}
+
+function calculateTotalXP(xps) {
+    return xps.reduce((sum, xp) => sum + xp.amount, 0);
+}
+
+function calculatePiscineXP(xps) {
+    return xps.reduce((sum, xp) => sum + (xp.path.includes('piscine') ? xp.amount : 0), 0);
+}
+
+function calculateProjectXP(xps) {
+    return xps.reduce((sum, xp) => sum + (!xp.path.includes('piscine') ? xp.amount : 0), 0);
+}
+
+function getUserXPForPath(xps, path) {
+    return xps.filter(xp => xp.path === path)
+        .reduce((sum, xp) => sum + xp.amount, 0);
+}
+
+function formatDate(dateStr) {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatGroupMembers(group) {
+    if (!group || !group.members) return '';
+    return group.members
+        .map(m => m.userLogin === group.captainLogin ? 
+             `<span class="captain">${m.userLogin}</span>` : 
+             m.userLogin)
+        .join(', ');
+}
+
+function humanSize(amount) {
+    const units = ['B', 'KB', 'MB'];
+    let size = amount;
+    let unitIndex = 0;
+    
+    while (size >= 1000 && unitIndex < units.length - 1) {
+        size /= 1000;
+        unitIndex++;
+    }
+    
+    return `${size.toFixed(2)} ${units[unitIndex]}`;
+}
 
 function showData(data) {
     const user = data.user[0];
@@ -292,126 +408,4 @@ function showData(data) {
     container.appendChild(tablesSection);
 
     contentDiv.appendChild(container);
-}
-
-// Utility Functions
-function createSection(className) {
-    const section = document.createElement('div');
-    section.className = `section ${className}`;
-    return section;
-}
-
-function createCard(title, items) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `
-        <div class="card-title">${title}</div>
-        <div class="card-content">
-            ${items.map(([label, value]) => `
-                <div class="info-item">
-                    <span>${label}:</span>
-                    <span>${value}</span>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    return card;
-}
-
-function createTable(title, headers, rows) {
-    const container = document.createElement('div');
-    container.className = 'table-container';
-    
-    const titleElement = document.createElement('h3');
-    titleElement.className = 'table-title';
-    titleElement.textContent = title;
-    container.appendChild(titleElement);
-
-    const tableWrapper = document.createElement('div');
-    const table = document.createElement('table');
-    table.innerHTML = `
-        <thead>
-            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
-        </thead>
-        <tbody>
-            ${rows.map(row => `
-                <tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>
-            `).join('')}
-        </tbody>
-    `;
-    tableWrapper.appendChild(table);
-    container.appendChild(tableWrapper);
-    return container;
-}
-
-function processSkillsData(transactions) {
-    console.log(transactions)
-    const skillsTotal = {};
-    
-    if (!transactions) return {};
-    
-    transactions.forEach(transaction => {
-        const skillName = transaction.type.replace('skill_', '');
-        skillsTotal[skillName] = (skillsTotal[skillName] || 0) + transaction.amount;
-    });
-    
-    // Sort by total amount and take top skills
-    const sortedSkills = Object.entries(skillsTotal)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 15)
-        .reduce((obj, [key, value]) => {
-            obj[key] = value;
-            return obj;
-        }, {});
-    console.log(sortedSkills)
-    return sortedSkills;
-}
-
-function calculateTotalXP(xps) {
-    return xps.reduce((sum, xp) => sum + xp.amount, 0);
-}
-
-function calculatePiscineXP(xps) {
-    return xps.reduce((sum, xp) => sum + (xp.path.includes('piscine') ? xp.amount : 0), 0);
-}
-
-function calculateProjectXP(xps) {
-    return xps.reduce((sum, xp) => sum + (!xp.path.includes('piscine') ? xp.amount : 0), 0);
-}
-
-function getUserXPForPath(xps, path) {
-    return xps.filter(xp => xp.path === path)
-        .reduce((sum, xp) => sum + xp.amount, 0);
-}
-
-function formatDate(dateStr) {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-function formatGroupMembers(group) {
-    if (!group || !group.members) return '';
-    return group.members
-        .map(m => m.userLogin === group.captainLogin ? 
-             `<span class="captain">${m.userLogin}</span>` : 
-             m.userLogin)
-        .join(', ');
-}
-
-function humanSize(amount) {
-    const units = ['B', 'KB', 'MB'];
-    let size = amount;
-    let unitIndex = 0;
-    
-    while (size >= 1000 && unitIndex < units.length - 1) {
-        size /= 1000;
-        unitIndex++;
-    }
-    
-    return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
