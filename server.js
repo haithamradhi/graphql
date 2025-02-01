@@ -109,12 +109,12 @@ app.post('/api/graphql', requireAuth, async (req, res) => {
 
 // Serve index.html only for the root route
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, '', 'index.html'));
 });
 
 // Serve 404 page for all other routes
 app.get('*', (req, res) => {
-    res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+    res.status(404).sendFile(path.join(__dirname, '', '404.html'));
 });
 
 // Error handling middleware
