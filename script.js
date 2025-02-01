@@ -3,13 +3,14 @@ const loginDialog = document.getElementsByTagName("dialog")[0];
 const toastContainer = document.getElementById("toast-container");
 const contentDiv = document.getElementById("content");
 
-// Check for existing token on page load
-checkAuth();
-
-function checkAuth() {
+// Initialize the login dialog on page load
+document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('authToken');
     if (token) {
-        getData(token);
+        getData(token).catch(() => {
+            localStorage.removeItem('authToken');
+            loginDialog.showModal();
+        });
         loginDialog.close();
     } else {
         loginDialog.showModal();
@@ -117,6 +118,7 @@ async function getData(token) {
         showToast('Failed to fetch data');
     }
 }
+
 
 function showData(data) {
     const user = data.user[0];
