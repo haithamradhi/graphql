@@ -1,36 +1,85 @@
+// Router configuration
+const router = {
+    init() {
+        // Handle initial route
+        this.handleRoute();
+
+        // Listen for route changes
+        window.addEventListener('popstate', () => this.handleRoute());
+
+        // Intercept link clicks for client-side routing
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('a[href]')) {
+                e.preventDefault();
+                const href = e.target.getAttribute('href');
+                this.navigateTo(href);
+            }
+        });
+    },
+
+    handleRoute() {
+        const path = window.location.pathname;
+        
+        // If not at root path, redirect to root
+        if (path !== '/') {
+            this.navigateTo('/');
+            return;
+        }
+
+        // Check authentication for root path
+        checkAuth();
+    },
+
+    navigateTo(path) {
+        // Update URL without page reload
+        window.history.pushState({}, '', path);
+        this.handleRoute();
+    }
+};
+
+// Initialize router when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize router
+    router.init();
+    
+    // Add logout button listener
+    logoutBtn.addEventListener('click', logOut);
+    
+    // Add login form listener
+    loginDialog.querySelector('form').addEventListener('submit', handleLogin);
+});
+
+
 // Constants and Initialization
 const loginDialog = document.getElementsByTagName("dialog")[0];
 const toastContainer = document.getElementById("toast-container");
 const contentDiv = document.getElementById("content");
+const logoutBtn = document.getElementById("logout-btn");
 
-// Initialize the login dialog on page load
+// Add event listeners
 document.addEventListener('DOMContentLoaded', () => {
+    // Check auth on page load
+    checkAuth();
+    
+    // Add logout button listener
+    logoutBtn.addEventListener('click', logOut);
+    
+    // Add login form listener
+    loginDialog.querySelector('form').addEventListener('submit', handleLogin);
+});
+
+function checkAuth() {
     const token = localStorage.getItem('authToken');
     if (token) {
-        getData(token).catch(() => {
-            localStorage.removeItem('authToken');
-            loginDialog.showModal();
-        });
+        getData(token);
         loginDialog.close();
     } else {
         loginDialog.showModal();
     }
-});
-
-// Toast Notification System
-function showToast(message, type = 'error') {
-    const toast = document.createElement('div');
-    toast.classList.add('toast', `toast-${type}`);
-    toast.textContent = message;
-    toastContainer.appendChild(toast);
-    setTimeout(() => {
-        toast.classList.add('toast-exit');
-        setTimeout(() => toastContainer.removeChild(toast), 500);
-    }, 3000);
 }
 
-// Authentication
-loginDialog.children.item(0).addEventListener("submit", async event => {
+// Handle login submission
+async function handleLogin(event) {
     event.preventDefault();
     try {
         const data = new FormData(event.target);
@@ -49,13 +98,27 @@ loginDialog.children.item(0).addEventListener("submit", async event => {
         console.error(error);
         showToast('An unexpected error occurred');
     }
-});
+}
+
+// Toast Notification System
+function showToast(message, type = 'error') {
+    const toast = document.createElement('div');
+    toast.classList.add('toast', `toast-${type}`);
+    toast.textContent = message;
+    toastContainer.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('toast-exit');
+        setTimeout(() => toastContainer.removeChild(toast), 500);
+    }, 3000);
+}
+
 
 function logOut() {
     localStorage.removeItem('authToken');
     contentDiv.innerHTML = "";
     loginDialog.showModal();
     showToast('Logged Out Successfully', 'success');
+    router.navigateTo('/');
 }
 
 async function getToken(user, pass) {
@@ -117,123 +180,6 @@ async function getData(token) {
         console.error(error);
         showToast('Failed to fetch data');
     }
-}
-
-function createSection(className) {
-    const section = document.createElement('div');
-    section.className = `section ${className}`;
-    return section;
-}
-
-function createCard(title, items) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `
-        <div class="card-title">${title}</div>
-        <div class="card-content">
-            ${items.map(([label, value]) => `
-                <div class="info-item">
-                    <span>${label}:</span>
-                    <span>${value}</span>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    return card;
-}
-
-function createTable(title, headers, rows) {
-    const container = document.createElement('div');
-    container.className = 'table-container';
-    
-    const titleElement = document.createElement('h3');
-    titleElement.className = 'table-title';
-    titleElement.textContent = title;
-    container.appendChild(titleElement);
-
-    const tableWrapper = document.createElement('div');
-    const table = document.createElement('table');
-    table.innerHTML = `
-        <thead>
-            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
-        </thead>
-        <tbody>
-            ${rows.map(row => `
-                <tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>
-            `).join('')}
-        </tbody>
-    `;
-    tableWrapper.appendChild(table);
-    container.appendChild(tableWrapper);
-    return container;
-}
-
-function processSkillsData(transactions) {
-    const skillsTotal = {};
-    
-    if (!transactions) return {};
-    
-    transactions.forEach(transaction => {
-        const skillName = transaction.type.replace('skill_', '');
-        skillsTotal[skillName] = (skillsTotal[skillName] || 0) + transaction.amount;
-    });
-    
-    return Object.entries(skillsTotal)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 15)
-        .reduce((obj, [key, value]) => {
-            obj[key] = value;
-            return obj;
-        }, {});
-}
-
-function calculateTotalXP(xps) {
-    return xps.reduce((sum, xp) => sum + xp.amount, 0);
-}
-
-function calculatePiscineXP(xps) {
-    return xps.reduce((sum, xp) => sum + (xp.path.includes('piscine') ? xp.amount : 0), 0);
-}
-
-function calculateProjectXP(xps) {
-    return xps.reduce((sum, xp) => sum + (!xp.path.includes('piscine') ? xp.amount : 0), 0);
-}
-
-function getUserXPForPath(xps, path) {
-    return xps.filter(xp => xp.path === path)
-        .reduce((sum, xp) => sum + xp.amount, 0);
-}
-
-function formatDate(dateStr) {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-function formatGroupMembers(group) {
-    if (!group || !group.members) return '';
-    return group.members
-        .map(m => m.userLogin === group.captainLogin ? 
-             `<span class="captain">${m.userLogin}</span>` : 
-             m.userLogin)
-        .join(', ');
-}
-
-function humanSize(amount) {
-    const units = ['B', 'KB', 'MB'];
-    let size = amount;
-    let unitIndex = 0;
-    
-    while (size >= 1000 && unitIndex < units.length - 1) {
-        size /= 1000;
-        unitIndex++;
-    }
-    
-    return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
 
 function showData(data) {
@@ -408,4 +354,126 @@ function showData(data) {
     container.appendChild(tablesSection);
 
     contentDiv.appendChild(container);
+}
+
+// Utility Functions
+function createSection(className) {
+    const section = document.createElement('div');
+    section.className = `section ${className}`;
+    return section;
+}
+
+function createCard(title, items) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+        <div class="card-title">${title}</div>
+        <div class="card-content">
+            ${items.map(([label, value]) => `
+                <div class="info-item">
+                    <span>${label}:</span>
+                    <span>${value}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    return card;
+}
+
+function createTable(title, headers, rows) {
+    const container = document.createElement('div');
+    container.className = 'table-container';
+    
+    const titleElement = document.createElement('h3');
+    titleElement.className = 'table-title';
+    titleElement.textContent = title;
+    container.appendChild(titleElement);
+
+    const tableWrapper = document.createElement('div');
+    const table = document.createElement('table');
+    table.innerHTML = `
+        <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+            ${rows.map(row => `
+                <tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>
+            `).join('')}
+        </tbody>
+    `;
+    tableWrapper.appendChild(table);
+    container.appendChild(tableWrapper);
+    return container;
+}
+
+function processSkillsData(transactions) {
+    console.log(transactions)
+    const skillsTotal = {};
+    
+    if (!transactions) return {};
+    
+    transactions.forEach(transaction => {
+        const skillName = transaction.type.replace('skill_', '');
+        skillsTotal[skillName] = (skillsTotal[skillName] || 0) + transaction.amount;
+    });
+    
+    // Sort by total amount and take top skills
+    const sortedSkills = Object.entries(skillsTotal)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15)
+        .reduce((obj, [key, value]) => {
+            obj[key] = value;
+            return obj;
+        }, {});
+    console.log(sortedSkills)
+    return sortedSkills;
+}
+
+function calculateTotalXP(xps) {
+    return xps.reduce((sum, xp) => sum + xp.amount, 0);
+}
+
+function calculatePiscineXP(xps) {
+    return xps.reduce((sum, xp) => sum + (xp.path.includes('piscine') ? xp.amount : 0), 0);
+}
+
+function calculateProjectXP(xps) {
+    return xps.reduce((sum, xp) => sum + (!xp.path.includes('piscine') ? xp.amount : 0), 0);
+}
+
+function getUserXPForPath(xps, path) {
+    return xps.filter(xp => xp.path === path)
+        .reduce((sum, xp) => sum + xp.amount, 0);
+}
+
+function formatDate(dateStr) {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatGroupMembers(group) {
+    if (!group || !group.members) return '';
+    return group.members
+        .map(m => m.userLogin === group.captainLogin ? 
+             `<span class="captain">${m.userLogin}</span>` : 
+             m.userLogin)
+        .join(', ');
+}
+
+function humanSize(amount) {
+    const units = ['B', 'KB', 'MB'];
+    let size = amount;
+    let unitIndex = 0;
+    
+    while (size >= 1000 && unitIndex < units.length - 1) {
+        size /= 1000;
+        unitIndex++;
+    }
+    
+    return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
