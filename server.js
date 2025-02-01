@@ -109,7 +109,11 @@ app.post('/api/graphql', requireAuth, async (req, res) => {
 
 // Serve index.html for all other routes
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    if (req.path !== '/') {
+        res.redirect('/');
+    } else {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
 });
 
 // Error handling middleware
