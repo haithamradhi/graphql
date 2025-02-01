@@ -3,23 +3,15 @@ const loginDialog = document.getElementsByTagName("dialog")[0];
 const toastContainer = document.getElementById("toast-container");
 const contentDiv = document.getElementById("content");
 
-// Check for existing session on page load
-checkSession();
+// Check for existing token on page load
+checkAuth();
 
-async function checkSession() {
-    try {
-        const response = await fetch('/api/check-session');
-        const data = await response.json();
-        
-        if (data.authenticated) {
-            await getData(data.token);
-            loginDialog.close();
-        } else {
-            loginDialog.showModal();
-        }
-    } catch (error) {
-        console.error('Session check error:', error);
-        showToast('Failed to check session');
+function checkAuth() {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+        getData(token);
+        loginDialog.close();
+    } else {
         loginDialog.showModal();
     }
 }
@@ -44,23 +36,11 @@ loginDialog.children.item(0).addEventListener("submit", async event => {
         const token = await getToken(data.get("user"), data.get("pass"));
         
         if (token && !token.startsWith("error:")) {
-            // Store token in session
-            const sessionResponse = await fetch('/api/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ token })
-            });
-            
-            if (sessionResponse.ok) {
-                await getData(token);
-                loginDialog.close();
-                event.target.reset();
-                showToast('Login Successful', 'success');
-            } else {
-                showToast('Failed to create session');
-            }
+            localStorage.setItem('authToken', token);
+            await getData(token);
+            loginDialog.close();
+            event.target.reset();
+            showToast('Login Successful', 'success');
         } else {
             showToast(token?.replace("error: ", "") || 'Login Failed');
         }
@@ -70,20 +50,11 @@ loginDialog.children.item(0).addEventListener("submit", async event => {
     }
 });
 
-async function logOut() {
-    try {
-        const response = await fetch('/api/logout', { method: 'POST' });
-        if (response.ok) {
-            contentDiv.innerHTML = "";
-            loginDialog.showModal();
-            showToast('Logged Out Successfully', 'success');
-        } else {
-            showToast('Failed to logout');
-        }
-    } catch (error) {
-        console.error(error);
-        showToast('Failed to logout');
-    }
+function logOut() {
+    localStorage.removeItem('authToken');
+    contentDiv.innerHTML = "";
+    loginDialog.showModal();
+    showToast('Logged Out Successfully', 'success');
 }
 
 async function getToken(user, pass) {
@@ -107,9 +78,10 @@ async function getToken(user, pass) {
 // Data Fetching
 async function getData(token) {
     try {
-        const response = await fetch('/api/graphql', {
+        const response = await fetch('https://learn.reboot01.com/api/graphql-engine/v1/graphql', {
             method: 'POST',
             headers: {
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -136,7 +108,7 @@ async function getData(token) {
         
         const json = await response.json();
         if (json.errors) {
-            json.errors.forEach(error => showToast(error));
+            json.errors.forEach(error => showToast(error.message));
             return;
         }
         showData(json.data);
