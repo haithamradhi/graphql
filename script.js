@@ -2,7 +2,27 @@
 const loginDialog = document.getElementsByTagName("dialog")[0];
 const toastContainer = document.getElementById("toast-container");
 const contentDiv = document.getElementById("content");
-let token;
+
+// Check for existing session on page load
+checkSession();
+
+async function checkSession() {
+    try {
+        const response = await fetch('/api/check-session');
+        const data = await response.json();
+        
+        if (data.authenticated) {
+            await getData(data.token);
+            loginDialog.close();
+        } else {
+            loginDialog.showModal();
+        }
+    } catch (error) {
+        console.error('Session check error:', error);
+        showToast('Failed to check session');
+        loginDialog.showModal();
+    }
+}
 
 // Toast Notification System
 function showToast(message, type = 'error') {
@@ -21,15 +41,28 @@ loginDialog.children.item(0).addEventListener("submit", async event => {
     event.preventDefault();
     try {
         const data = new FormData(event.target);
-        const newToken = await getToken(data.get("user"), data.get("pass"));
-        if (newToken && !newToken.startsWith("error:")) {
-            token = newToken;
-            await getData(token);
-            loginDialog.close();
-            event.target.reset();
-            showToast('Login Successful', 'success');
+        const token = await getToken(data.get("user"), data.get("pass"));
+        
+        if (token && !token.startsWith("error:")) {
+            // Store token in session
+            const sessionResponse = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ token })
+            });
+            
+            if (sessionResponse.ok) {
+                await getData(token);
+                loginDialog.close();
+                event.target.reset();
+                showToast('Login Successful', 'success');
+            } else {
+                showToast('Failed to create session');
+            }
         } else {
-            showToast(newToken?.replace("error: ", "") || 'Login Failed');
+            showToast(token?.replace("error: ", "") || 'Login Failed');
         }
     } catch (error) {
         console.error(error);
@@ -37,12 +70,20 @@ loginDialog.children.item(0).addEventListener("submit", async event => {
     }
 });
 
-loginDialog.showModal();
-
-function logOut() {
-    contentDiv.innerHTML = "";
-    loginDialog.showModal();
-    showToast('Logged Out Successfully', 'success');
+async function logOut() {
+    try {
+        const response = await fetch('/api/logout', { method: 'POST' });
+        if (response.ok) {
+            contentDiv.innerHTML = "";
+            loginDialog.showModal();
+            showToast('Logged Out Successfully', 'success');
+        } else {
+            showToast('Failed to logout');
+        }
+    } catch (error) {
+        console.error(error);
+        showToast('Failed to logout');
+    }
 }
 
 async function getToken(user, pass) {
@@ -66,11 +107,9 @@ async function getToken(user, pass) {
 // Data Fetching
 async function getData(token) {
     try {
-        const response = await fetch(`https://learn.reboot01.com/api/graphql-engine/v1/graphql`, {
-            method: "POST",
+        const response = await fetch('/api/graphql', {
+            method: 'POST',
             headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: 'application/json',
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -80,7 +119,6 @@ async function getData(token) {
                         progresses(where: {isDone: { _eq:true}}) {
                             createdAt, path, results { id, grade }
                         },
-                        progressesByPath { count, createdAt, path, succeeded },
                         transactions(where: { type: {_ilike: "%skill%"}}) {
                             type, amount
                         },
@@ -95,6 +133,7 @@ async function getData(token) {
                 }`
             })
         });
+        
         const json = await response.json();
         if (json.errors) {
             json.errors.forEach(error => showToast(error));
@@ -257,7 +296,9 @@ function showData(data) {
     const progressTable = createTable(
         'Progress History',
         ['Path', 'XP', 'Grade'],
-        user.progresses.map(p => [
+         user.progresses
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(p => [
             p.path,
             humanSize(getUserXPForPath(user.xps, p.path)),
             p.results[0]?.grade || '0'
