@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         loginDialog.showModal();
     }
-}
+})
 
 // Toast Notification System
 function showToast(message, type = 'error') {
