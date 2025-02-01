@@ -31,7 +31,7 @@ A full-stack web application for displaying student progress, skills, and audit 
 1. Clone the repository:
 ```bash
 git clone https://learn.reboot01.com/git/hradhi/graphql
-cd student-dashboard
+cd graphql
 ```
 
 2. Install dependencies:
